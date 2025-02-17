@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FakeNews Guardian</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .loading {
+            border: 2px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 2px solid transparent;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <i data-lucide="shield" class="w-10 h-10 text-emerald-400"></i>
+                <h1 class="text-4xl font-bold">FakeNews Guardian</h1>
+            </div>
+            <p class="text-slate-300 max-w-2xl mx-auto">
+                Advanced news verification system with real-time cross-referencing against the world's most trusted news sources.
+            </p>
+        </header>
+
+        <div class="max-w-4xl mx-auto bg-slate-800/50 rounded-xl p-6 backdrop-blur-sm shadow-xl">
+            <form id="verificationForm" class="space-y-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="url" class="block text-sm font-medium text-slate-300 mb-2">
+                            News URL
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="url"
+                                id="url"
+                                placeholder="https://example.com/news-article"
+                                class="w-full px-4 py-2 bg-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none text-white placeholder-slate-400"
+                            >
+                            <i data-lucide="search" class="absolute right-3 top-2.5 text-slate-400 w-5 h-5"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-slate-600"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-slate-800/50 text-slate-400">OR</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="text" class="block text-sm font-medium text-slate-300 mb-2">
+                            Paste News Content
+                        </label>
+                        <textarea
+                            id="text"
+                            placeholder="Paste the news content here..."
+                            rows="4"
+                            class="w-full px-4 py-2 bg-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none text-white placeholder-slate-400"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="newspaper" class="w-5 h-5"></i>
+                    <span>Verify Content</span>
+                </button>
+            </form>
+
+            <div id="result" class="hidden mt-8 p-6 rounded-lg"></div>
+        </div>
+
+        <footer class="mt-12 text-center text-slate-400 text-sm">
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <i data-lucide="database" class="w-4 h-4"></i>
+                <span>Cross-referenced with world's leading news sources</span>
+            </div>
+            <p>Our verification system checks content against The New York Times, BBC, CNN, The Guardian, Associated Press, Reuters, and other trusted sources.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Form submission handling
+        const form = document.getElementById('verificationForm');
+        const resultDiv = document.getElementById('result');
+        let loading = false;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (loading) return;
+
+            const url = document.getElementById('url').value;
+            const text = document.getElementById('text').value;
+
+            if (!url && !text) {
+                alert('Please provide either a URL or text content');
+                return;
+            }
+
+            loading = true;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonContent = submitButton.innerHTML;
+            submitButton.innerHTML = `
+                <div class="loading"></div>
+                <span>Cross-referencing Sources...</span>
+            `;
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url, text }),
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayResult(result);
+                } else {
+                    alert(result.error || 'An error occurred while analyzing the content');
+                }
+            } catch (error) {
+                alert('An error occurred while analyzing the content');
+            } finally {
+                loading = false;
+                submitButton.innerHTML = originalButtonContent;
+            }
+        });
+
+        function getReliabilityColor(reliability) {
+            if (reliability >= 90) return 'text-emerald-400';
+            if (reliability >= 70) return 'text-yellow-400';
+            return 'text-red-400';
+        }
+
+        function displayResult(result) {
+            resultDiv.className = `mt-8 p-6 rounded-lg ${result.isFake ? 'bg-red-500/20' : 'bg-green-500/20'}`;
+            
+            resultDiv.innerHTML = `
+                <div class="flex items-start gap-4">
+                    <i data-lucide="${result.isFake ? 'x-circle' : 'check-circle-2'}" 
+                       class="${result.isFake ? 'text-red-400' : 'text-emerald-400'} w-6 h-6 flex-shrink-0"></i>
+                    <div class="space-y-4 w-full">
+                        <div>
+                            <h3 class="text-xl font-semibold mb-2">
+                                ${result.isFake ? 'Potential Misinformation Detected' : 'Content Verified by Trusted Sources'}
+                            </h3>
+                            <p class="text-slate-300">${result.explanation}</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium">Verification Confidence:</span>
+                            <div class="flex-1 h-2 bg-slate-700 rounded-full max-w-xs">
+                                <div class="h-full rounded-full ${result.isFake ? 'bg-red-400' : 'bg-emerald-400'}"
+                                     style="width: ${result.confidence}%"></div>
+                            </div>
+                            <span class="text-sm">${result.confidence.toFixed(1)}%</span>
+                        </div>
+
+                        <div class="border-t border-slate-700 pt-4">
+                            <h4 class="text-lg font-medium mb-3">Trusted Source Coverage</h4>
+                            <div class="grid gap-4 md:grid-cols-2">
+                                ${result.sources.map(source => `
+                                    <div class="bg-slate-800 rounded-lg p-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="newspaper" class="text-slate-400 w-4 h-4"></i>
+                                                <span class="font-medium">${source.name}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium ${getReliabilityColor(source.reliability)}">
+                                                    ${source.reliability}% reliable
+                                                </span>
+                                                <a href="${source.url}" target="_blank" rel="noopener noreferrer"
+                                                   class="text-emerald-400 hover:text-emerald-300">
+                                                    <i data-lucide="link" class="w-4 h-4"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        ${source.matchingContent.map(content => `
+                                            <div class="mt-2 p-3 bg-slate-700/50 rounded-lg">
+                                                <div class="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <h5 class="text-sm font-medium text-slate-300">${content.headline}</h5>
+                                                        <p class="text-xs text-slate-400 mt-1">Published: ${content.publishDate}</p>
+                                                    </div>
+                                                    <a href="${content.url}" target="_blank" rel="noopener noreferrer"
+                                                       class="text-emerald-400 hover:text-emerald-300 flex-shrink-0">
+                                                        <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultDiv.classList.remove('hidden');
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
